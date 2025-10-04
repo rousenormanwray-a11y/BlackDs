@@ -1,0 +1,93 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  password  String
+  role      Role     @default(ATTENDANT)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  redemptions RedemptionLog[]
+}
+
+enum Role {
+  ADMIN
+  ATTENDANT
+}
+
+model Campaign {
+  id        Int        @id @default(autoincrement())
+  name      String
+  type      String     // e.g., "FOLLOW_US", "TOURNAMENT", etc.
+  status    CampaignStatus @default(ACTIVE)
+  createdAt DateTime   @default(now())
+  startsAt  DateTime?
+  expiresAt DateTime?
+  
+  // Relations
+  codes     PromoCode[]
+  scans     ScanEvent[]
+}
+
+enum CampaignStatus { 
+  ACTIVE 
+  INACTIVE 
+  ARCHIVED 
+}
+
+model PromoCode {
+  id         Int       @id @default(autoincrement())
+  code       String    @unique
+  campaignId Int
+  userHint   String?   // optional: phone hash, ip hash, or device fingerprint
+  issuedAt   DateTime  @default(now())
+  expiresAt  DateTime
+  redeemed   Boolean   @default(false)
+  redeemedAt DateTime?
+  redeemedBy Int?      // User.id of attendant who redeemed
+  
+  // Relations
+  campaign   Campaign  @relation(fields: [campaignId], references: [id])
+  logs       RedemptionLog[]
+}
+
+model RedemptionLog {
+  id          Int      @id @default(autoincrement())
+  promoCodeId Int
+  attendantId Int?
+  status      RedemptionStatus
+  note        String?
+  createdAt   DateTime @default(now())
+  
+  // Relations
+  promoCode   PromoCode @relation(fields: [promoCodeId], references: [id])
+  attendant   User?     @relation(fields: [attendantId], references: [id])
+}
+
+enum RedemptionStatus { 
+  ATTEMPT 
+  SUCCESS 
+  FAILURE 
+  EXPIRED 
+}
+
+model ScanEvent {
+  id          Int      @id @default(autoincrement())
+  campaignId  Int
+  userAgent   String?
+  ipHash      String?
+  deviceId    String?
+  createdAt   DateTime @default(now())
+  
+  // Relations
+  campaign    Campaign @relation(fields: [campaignId], references: [id])
+}
